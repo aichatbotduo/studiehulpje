@@ -41,7 +41,7 @@ if "logged_in" not in st.session_state:
 if not st.session_state.logged_in:
     u = st.text_input("Gebruiker")
     p = st.text_input("Wachtwoord", type="password")
-    if st.button("Log in"):
+    if st.button("Log in"):#test
         if u in USER_CREDS and USER_CREDS[u] == p:
             st.session_state.logged_in = True
             st.session_state.user = u
