@@ -9,7 +9,9 @@ st.markdown("*Hou op met zeuren en ga aan het werk. Ik onthoud alles wat je zegt
 
 # 2. API Configuratie (Directe methode)
 # Let op: Deel deze code niet zomaar op internet met je key erin!
-MY_GROQ_KEY = "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"
+# Haal de sleutel veilig op uit de Streamlit Secrets kluis
+MY_GROQ_KEY = st.secrets["GROQ_API_KEY"]
+
 client = Groq(api_key=MY_GROQ_KEY)
 #updated crog
 # Bestandsnaam voor het permanente geheugen
