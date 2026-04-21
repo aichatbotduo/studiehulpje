@@ -1,2 +1,3 @@
 streamlit
 groq
+st-supabase-connection
