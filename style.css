@@ -1,0 +1,5 @@
+.stApp { background-color: #0e1117; }
+    h1 { color: #ff4b4b !important; font-family: 'Courier New', monospace; }
+    .stSidebar { background-color: #161b22; }
+    .stChatMessage { border-radius: 10px; margin-bottom: 10px; }
+    
