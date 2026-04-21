@@ -1,7 +1,43 @@
 import streamlit as st
 from groq import Groq
 import os
+# --- CUSTOM CSS STYLE ---
+st.markdown("""
+    <style>
+    /* De achtergrond van de hele pagina */
+    .stApp {
+        background-color: #121212;
+    }
 
+    /* De kleur van de titels */
+    h1 {
+        color: #FF4B4B !important;
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    /* De tekst in de sidebar */
+    .stSidebar {
+        background-color: #1E1E1E;
+    }
+
+    /* Stijl voor de chat input onderaan */
+    .stChatInputContainer {
+        padding-bottom: 20px;
+    }
+
+    /* Maak de teksten beter leesbaar op een donkere achtergrond */
+    p, span, div {
+        color: #E0E0E0;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+with st.sidebar:
+    st.image("https://cdn-icons-png.flaticon.com/512/1998/1998614.png", width=100) # Een icoontje
+    st.title("Project Info")
+    st.info("🤖 **Model:** Llama 3.3 (Groq)")
+    st.warning("🗓️ **Deadline:** Vrijdag 16:00")
+    st.write("---")
+    st.write("Gemaakt door: **Jouw Naam & Groep**")
 # 1. Interface & Grafisch Ontwerp
 st.set_page_config(page_title="Brutale Studiecoach", page_icon="💀")
 st.title("💀 Je Brutale Studie Maatje")
