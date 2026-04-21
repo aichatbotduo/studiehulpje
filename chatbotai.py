@@ -78,4 +78,65 @@ with st.sidebar:
     if st.button("➕ Nieuw Gesprek"):
         new_id = len(st.session_state.all_chats) + 1
         new_name = f"Gesprek {new_id}"
-        st.session_state.all_chats
+        st.session_state.all_chats[new_name] = []
+        st.session_state.current_chat_name = new_name
+        save_user_data(st.session_state.user, st.session_state.all_chats)
+        st.rerun()
+
+    # Selectielijst voor gesprekken
+    chat_list = list(st.session_state.all_chats.keys())
+    # Zoek de index van de huidige chat om de radiobutton goed te zetten
+    current_index = chat_list.index(st.session_state.current_chat_name)
+    
+    selected_chat = st.radio("Kies een chat:", chat_list, index=current_index)
+    
+    # Als je een andere chat kiest in de radiobutton
+    if selected_chat != st.session_state.current_chat_name:
+        st.session_state.current_chat_name = selected_chat
+        st.rerun()
+
+    st.divider()
+    if st.button("Uitloggen"):
+        st.session_state.logged_in = False
+        st.rerun()
+
+# 6. Hoofdscherm Chat Interface
+st.title(f"💀 {st.session_state.current_chat_name}")
+st.info(f"Welkom terug, {st.session_state.user}. De deadline is nog steeds vrijdag 16:00. Werk door.")
+
+# Haal de berichten op van de geselecteerde chat
+messages = st.session_state.all_chats[st.session_state.current_chat_name]
+
+# Toon geschiedenis
+for msg in messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# 7. Chat Input & AI Logica
+if prompt := st.chat_input("Zeg iets stoms..."):
+    # Voeg gebruiker bericht toe
+    messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Genereer AI antwoord
+    with st.chat_message("assistant"):
+        # De instructies voor de AI
+        system_msg = f"Je bent een brutale, sarcastische studiecoach. Je praat met {st.session_state.user}."
+        
+        try:
+            completion = client.chat.completions.create(
+                messages=[{"role": "system", "content": system_msg}, *messages],
+                model="llama-3.3-70b-versatile",
+            )
+            ans = completion.choices[0].message.content
+            st.markdown(ans)
+            
+            # Voeg AI antwoord toe aan de lijst
+            messages.append({"role": "assistant", "content": ans})
+            
+            # OPSLAAN: Sla de hele boel direct op in het JSON bestand
+            save_user_data(st.session_state.user, st.session_state.all_chats)
+            
+        except Exception as e:
+            st.error(f"Foutje met de AI: {e}")
