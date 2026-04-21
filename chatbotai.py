@@ -110,4 +110,4 @@ if prompt := st.chat_input("Stel je vraag..."):
         
         # Sla ook het antwoord op in de DB en session state
         st.session_state.messages.append({"role": "assistant", "content": answer})
-        save_message(st.session_state.user, "assistant", answer)
+        save_message(st.session_state.user, "assistant", answer) #t 
