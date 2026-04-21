@@ -11,7 +11,7 @@ st.markdown("*Hou op met zeuren en ga aan het werk. Ik onthoud alles wat je zegt
 # Let op: Deel deze code niet zomaar op internet met je key erin!
 MY_GROQ_KEY = "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"
 client = Groq(api_key=MY_GROQ_KEY)
-
+#updated crog
 # Bestandsnaam voor het permanente geheugen
 MEMORY_FILE = "geheugen.txt"
 
