@@ -6,7 +6,27 @@ import os
 st.set_page_config(page_title="Brutale Studiecoach", page_icon="💀")
 st.title("💀 Je Brutale Studie Maatje")
 st.markdown("*Hou op met zeuren en ga aan het werk. Ik onthoud alles wat je zegt, dus pas maar op.*")
+st.markdown("""
+    <style>
+    /* Verander de achtergrondkleur van de hele app naar heel donkergrijs */
+    .stApp {
+        background-color: #0e1117;
+    }
+    
+    /* Maak de titels rood en een beetje 'scary' */
+    h1 {
+        color: #ff4b4b;
+        font-family: 'Courier New', Courier, monospace;
+        text-shadow: 2px 2px #000000;
+    }
 
+    /* Verander de stijl van de chatberichten */
+    .stChatMessage {
+        border-radius: 15px;
+        border: 1px solid #444;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 # 2. API Configuratie (Directe methode)
 # Let op: Deel deze code niet zomaar op internet met je key erin!
 # Haal de sleutel veilig op uit de Streamlit Secrets kluis
