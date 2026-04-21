@@ -1,78 +1,107 @@
 import streamlit as st
 from groq import Groq
 
-# 1. Configuratie & Stijl
-st.set_page_config(page_title="Brutale Coach Login", page_icon="🔐")
+# 1. Pagina instellingen & Stijl
+st.set_page_config(page_title="Brutale Studiecoach", page_icon="💀", layout="wide")
 
-# 2. Gebruikers Database (Simpel)
-# In een echte app gebruik je een database, maar voor je project werkt dit prima:
+# Custom CSS voor de "Brutale" look
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e1117; }
+    h1 { color: #ff4b4b !important; font-family: 'Courier New'; }
+    .stSidebar { background-color: #161b22; }
+    .stChatMessage { border-radius: 10px; }
+    </style>
+""", unsafe_allow_html=True)
+
+# 2. Inlog Systeem
+# Gebruikersnaam en wachtwoord lijst
 USER_CREDS = {
-    "damian": "wachtwoord123",
-    "leraar": "cijfer10",
-    "student1": "pindakaas"
+    "damian": "123",
+    "leraar": "10",
+    "student1": "pinda"
 }
 
-# 3. Inlog Logica
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-    st.session_state.user = ""
 
 if not st.session_state.logged_in:
-    st.title("🔐 Log in op je Studiecoach")
-    username = st.text_input("Gebruikersnaam").lower()
-    password = st.text_input("Wachtwoord", type="password")
-    
-    if st.button("Log in"):
-        if username in USER_CREDS and USER_CREDS[username] == password:
+    st.title("🔐 Log in bij je Coach")
+    u = st.text_input("Gebruikersnaam").lower()
+    p = st.text_input("Wachtwoord", type="password")
+    if st.button("Start Sessie"):
+        if u in USER_CREDS and USER_CREDS[u] == p:
             st.session_state.logged_in = True
-            st.session_state.user = username
-            st.success(f"Welkom {username}!")
+            st.session_state.user = u
             st.rerun()
         else:
-            st.error("Onjuiste inloggegevens. De coach vindt je nu al dom.")
-    st.stop() # Stop de rest van de code als je niet bent ingelogd
+            st.error("Fout! Ga eerst maar eens leren inloggen.")
+    st.stop()
 
-# --- VANAF HIER IS DE CODE ALLEEN ZICHTBAAR ALS JE BENT INGELOGD ---
+# --- VANAF HIER: INGELOGD ---
 
-# 4. API Setup
-MY_GROQ_KEY = st.secrets["GROQ_API_KEY"]
-client = Groq(api_key=MY_GROQ_KEY)
+# 3. Initialiseer Opslag (Session State)
+# We maken een plekje voor alle chats van deze sessie
+if "all_chats" not in st.session_state:
+    st.session_state.all_chats = {"Gesprek 1": []}
 
-# Initialiseer opslag voor ALLE gebruikers als die nog niet bestaat
-if "user_chats" not in st.session_state:
-    st.session_state.user_chats = {}
+if "current_chat_name" not in st.session_state:
+    st.session_state.current_chat_name = "Gesprek 1"
 
-# Zorg dat de huidige gebruiker een plekje heeft voor zijn chats
-if st.session_state.user not in st.session_state.user_chats:
-    st.session_state.user_chats[st.session_state.user] = []
+# 4. API Configuratie (Secrets)
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-st.sidebar.title(f"👤 Gebruiker: {st.session_state.user}")
-if st.sidebar.button("Uitloggen"):
-    st.session_state.logged_in = False
-    st.rerun()
+# 5. Sidebar met Chat-beheer
+with st.sidebar:
+    st.title(f"👤 {st.session_state.user.capitalize()}")
+    
+    # Knop voor nieuwe chat
+    if st.button("➕ Nieuwe Chat"):
+        new_name = f"Gesprek {len(st.session_state.all_chats) + 1}"
+        st.session_state.all_chats[new_name] = []
+        st.session_state.current_chat_name = new_name
+        st.rerun()
 
-st.title(f"💀 Coach voor {st.session_state.user}")
+    # Kies tussen de verschillende chats
+    chat_keuze = st.radio("Je actieve chats:", list(st.session_state.all_chats.keys()))
+    st.session_state.current_chat_name = chat_keuze
 
-# 5. Chat Interface (Gekoppeld aan de gebruiker)
-user_history = st.session_state.user_chats[st.session_state.user]
+    st.divider()
+    if st.button("Uitloggen"):
+        st.session_state.logged_in = False
+        st.rerun()
 
-for message in user_history:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# 6. Het Chat Scherm
+st.title(f"💀 {st.session_state.current_chat_name}")
+st.write(f"*Je bent nu aan het chatten als {st.session_state.user}*")
 
-if prompt := st.chat_input("Stel je vraag..."):
-    user_history.append({"role": "user", "content": prompt})
+# Haal de berichten op van de geselecteerde chat
+current_history = st.session_state.all_chats[st.session_state.current_chat_name]
+
+# Toon de chat-geschiedenis op het scherm
+for msg in current_history:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# 7. Input verwerken
+if prompt := st.chat_input("Stel je (domme) vraag..."):
+    # Voeg vraag toe aan de huidige chat
+    current_history.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # AI Antwoord genereren
     with st.chat_message("assistant"):
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": f"Je bent een brutale coach. Je praat nu met {st.session_state.user}."},
-                *user_history
-            ],
+        # System prompt instellen
+        instructies = f"Je bent een brutale studiecoach. Je praat met {st.session_state.user}. Deadline: vrijdag 16:00."
+        
+        completion = client.chat.completions.create(
+            messages=[{"role": "system", "content": instructies}, *current_history],
             model="llama-3.3-70b-versatile",
         )
-        answer = chat_completion.choices[0].message.content
+        
+        answer = completion.choices[0].message.content
         st.markdown(answer)
-        user_history.append({"role": "assistant", "content": answer})
+        
+        # Voeg antwoord toe aan de geschiedenis
+        current_history.append({"role": "assistant", "content": answer})
