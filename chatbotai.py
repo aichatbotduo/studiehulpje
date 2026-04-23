@@ -3,9 +3,10 @@ from groq import Groq
 from supabase import create_client, Client
 
 # 1. Pagina instellingen
-st.set_page_config(page_title="Brutale Coach SQL", page_icon="💀")
+st.set_page_config(page_title="Brutale Coach", page_icon="💀")
 
 # 2. Database Verbinding
+# Zorg dat deze in Streamlit Secrets staan!
 URL = st.secrets["connections"]["supabase"]["url"]
 KEY = st.secrets["connections"]["supabase"]["key"]
 supabase: Client = create_client(URL, KEY)
@@ -99,7 +100,7 @@ for msg in history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-if prompt := st.chat_input("Vraag iets..."):
+if prompt := st.chat_input("Vraag iets aan je coach..."):
     with st.chat_message("user"):
         st.markdown(prompt)
     save_message_to_db(st.session_state.user, st.session_state.current_chat, "user", prompt)
