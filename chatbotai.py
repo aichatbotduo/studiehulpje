@@ -1,57 +1,64 @@
 import streamlit as st
+import bcrypt
 from groq import Groq
 from supabase import create_client, Client
 
 # 1. Pagina instellingen
-st.set_page_config(page_title="Brutale Coach SQL", page_icon="💀", layout="centered")
+st.set_page_config(page_title="Brutale Coach SQL", page_icon="💀")
 
-# 2. Database Verbinding (Secrets uit Streamlit Cloud)
-try:
-    URL = st.secrets["connections"]["supabase"]["url"]
-    KEY = st.secrets["connections"]["supabase"]["key"]
-    supabase: Client = create_client(URL, KEY)
-except Exception as e:
-    st.error("Systeemfout: Kan geen verbinding maken met de database. Controleer je Secrets!")
-    st.stop()
+# 2. Database Verbinding
+URL = st.secrets["connections"]["supabase"]["url"]
+KEY = st.secrets["connections"]["supabase"]["key"]
+supabase: Client = create_client(URL, KEY)
 
-# --- DATABASE FUNCTIES ---
+# --- NIEUWE HASH FUNCTIES ---
+
+def hash_password(password):
+    # Verandert "wachtwoord123" in een onleesbare reeks zoals "$2b$12$..."
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
+
+def verify_password(password, hashed_password):
+    # Controleert of het ingevoerde wachtwoord matcht met de hash
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+# --- AANGEPASTE DATABASE FUNCTIES ---
 
 def register_user(username, password):
     try:
-        # Check of velden leeg zijn
-        if not username or not password:
-            return False, "Vul een gebruikersnaam en wachtwoord in."
-        
-        # Voeg gebruiker toe
-        res = supabase.table("users").insert({
+        hashed_pw = hash_password(password)
+        supabase.table("users").insert({
             "username": username, 
-            "password": password
+            "password": hashed_pw
         }).execute()
-        return True, "Account aangemaakt! Je kunt nu inloggen."
+        return True, "Account aangemaakt!"
     except Exception as e:
-        # Als de naam al bestaat geeft Supabase een error
         if "duplicate key" in str(e).lower():
             return False, "Deze gebruikersnaam bestaat al."
-        return False, f"Database fout: {str(e)}"
+        return False, f"Fout: {e}"
 
 def check_login(username, password):
     try:
-        res = supabase.table("users").select("*").eq("username", username).eq("password", password).execute()
-        return len(res.data) > 0
-    except Exception as e:
-        st.error(f"Inlogfout: {e}")
+        res = supabase.table("users").select("*").eq("username", username).execute()
+        if res.data:
+            stored_hashed_pw = res.data[0]["password"]
+            # Gebruik bcrypt om te vergelijken
+            if verify_password(password, stored_hashed_pw):
+                return True
         return False
+    except Exception as e:
+        st.error(f"Login fout: {e}")
+        return False
+
+# --- DE REST VAN JE CODE (Hetzelfde als voorheen) ---
 
 def save_message_to_db(username, chat_name, role, content):
     try:
         supabase.table("chat_history").insert({
-            "username": username, 
-            "chat_name": chat_name, 
-            "role": role, 
-            "content": content
+            "username": username, "chat_name": chat_name, "role": role, "content": content
         }).execute()
-    except Exception as e:
-        st.sidebar.error(f"Bericht niet opgeslagen: {e}")
+    except: pass
 
 def load_chat_from_db(username, chat_name):
     try:
@@ -59,27 +66,23 @@ def load_chat_from_db(username, chat_name):
             .eq("username", username).eq("chat_name", chat_name)\
             .order("created_at", ascending=True).execute()
         return res.data
-    except:
-        return []
+    except: return []
 
 def get_all_chat_names(username):
     try:
         res = supabase.table("chat_history").select("chat_name").eq("username", username).execute()
         if res.data:
-            # Haal unieke namen op en sorteer
             return sorted(list(set([item['chat_name'] for item in res.data])))
-        return ["Mijn eerste gesprek"]
-    except:
-        return ["Mijn eerste gesprek"]
+        return ["Gesprek 1"]
+    except: return ["Gesprek 1"]
 
-# --- LOGIN / REGISTRATIE SCHERM ---
-
+# --- LOGIN / REGISTRATIE INTERFACE ---
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    st.title("🥊 De Brutale Coach")
-    tab1, tab2 = st.tabs(["🔐 Inloggen", "📝 Registreren"])
+    st.title("🔐 Veilige Toegang")
+    tab1, tab2 = st.tabs(["Inloggen", "Registreren"])
 
     with tab1:
         u_login = st.text_input("Gebruikersnaam", key="l_user")
@@ -90,90 +93,55 @@ if not st.session_state.logged_in:
                 st.session_state.user = u_login
                 st.rerun()
             else:
-                st.error("Onjuiste login gegevens.")
+                st.error("Onjuiste gegevens.")
 
     with tab2:
-        u_reg = st.text_input("Kies een naam", key="r_user")
-        p_reg = st.text_input("Kies een wachtwoord", type="password", key="r_pass")
+        u_reg = st.text_input("Gebruikersnaam", key="r_user")
+        p_reg = st.text_input("Wachtwoord", type="password", key="r_pass")
         if st.button("Account aanmaken"):
-            success, message = register_user(u_reg, p_reg)
-            if success:
-                st.success(message)
-            else:
-                st.error(message)
+            if u_reg and p_reg:
+                success, msg = register_user(u_reg, p_reg)
+                if success: st.success(msg)
+                else: st.error(msg)
     st.stop()
 
-# --- CHAT INTERFACE (NA LOGIN) ---
+# --- CHAT GEDEELTE ---
+client = Groq(api_key=st.secrets["GROQ_API_KEY"])
 
-# Groq Client instellen
-try:
-    client = Groq(api_key=st.secrets["GROQ_API_KEY"])
-except:
-    st.error("Groq API Key ontbreekt in Secrets!")
-    st.stop()
-
-# Zijbalk met chatgeschiedenis
 with st.sidebar:
-    st.title(f"Welkom, {st.session_state.user}")
-    
+    st.title(f"👤 {st.session_state.user}")
     beschikbare_chats = get_all_chat_names(st.session_state.user)
-    
     if "current_chat" not in st.session_state:
         st.session_state.current_chat = beschikbare_chats[0]
     
     if st.button("➕ Nieuwe Chat"):
-        nieuwe_index = len(beschikbare_chats) + 1
-        st.session_state.current_chat = f"Gesprek {nieuwe_index}"
+        st.session_state.current_chat = f"Gesprek {len(beschikbare_chats) + 1}"
         st.rerun()
     
-    st.session_state.current_chat = st.radio(
-        "Kies een gesprek:", 
-        beschikbare_chats, 
-        index=beschikbare_chats.index(st.session_state.current_chat) if st.session_state.current_chat in beschikbare_chats else 0
-    )
+    st.session_state.current_chat = st.radio("Chats:", beschikbare_chats, index=0)
     
-    st.divider()
-    if st.button("Uitloggen"):
+    if st.button("Log uit"):
         st.session_state.logged_in = False
         st.rerun()
 
-# Hoofdscherm Chat
 st.title(f"💬 {st.session_state.current_chat}")
-
-# Laad de geschiedenis uit de database
 history = load_chat_from_db(st.session_state.user, st.session_state.current_chat)
 
-# Toon de berichten
 for msg in history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Input voor nieuwe berichten
-if prompt := st.chat_input("Wat wil je weten?"):
-    # Toon user bericht
+if prompt := st.chat_input("Vraag iets..."):
     with st.chat_message("user"):
         st.markdown(prompt)
-    
-    # Sla op in DB
     save_message_to_db(st.session_state.user, st.session_state.current_chat, "user", prompt)
     
-    # AI Antwoord genereren
     with st.chat_message("assistant"):
-        # Bouw berichtenset voor de AI
-        payload = [{"role": "system", "content": "Je bent een brutale coach die korte, eerlijke antwoorden geeft."}]
-        for m in history:
-            payload.append({"role": m["role"], "content": m["content"]})
+        payload = [{"role": "system", "content": "Je bent een brutale coach."}]
+        for m in history: payload.append({"role": m["role"], "content": m["content"]})
         payload.append({"role": "user", "content": prompt})
         
-        try:
-            response = client.chat.completions.create(
-                messages=payload,
-                model="llama-3.3-70b-versatile",
-            )
-            ans = response.choices[0].message.content
-            st.markdown(ans)
-            
-            # Sla AI antwoord op in DB
-            save_message_to_db(st.session_state.user, st.session_state.current_chat, "assistant", ans)
-        except Exception as e:
-            st.error(f"AI Fout: {e}")
+        response = client.chat.completions.create(messages=payload, model="llama-3.3-70b-versatile")
+        ans = response.choices[0].message.content
+        st.markdown(ans)
+        save_message_to_db(st.session_state.user, st.session_state.current_chat, "assistant", ans)

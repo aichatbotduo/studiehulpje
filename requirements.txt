@@ -1,3 +1,4 @@
 streamlit
 groq
-st-supabase-connection
+supabase
+bcrypt
